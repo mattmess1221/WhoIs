@@ -34,7 +34,10 @@ import javax.annotation.Nonnull;
 
 @Plugin(
         id = "whois",
-        name = "WhoIs"
+        name = "WhoIs",
+        authors = "killjoy1221",
+        version = "1.0",
+        description = "A simple command to give details on a user."
 )
 public class Whois {
 
@@ -93,38 +96,38 @@ public class Whois {
 
         target.getPlayer()
                 .filter(g -> has(commandContext, ALL, GAMEMODE))
-                .<Text>map(player -> Text.of(player.gameMode().get()))
+                .map(player -> Text.of(player.gameMode().get()))
                 .ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "Game Mode: ", TextColors.WHITE, text))
-        );
+                        texts.add(Text.of(TextColors.YELLOW, "Game Mode: ", TextColors.WHITE, text))
+                );
         target.getPlayer()
                 .filter(w -> has(commandContext, ALL, WORLD))
-                .<Text>map(player -> Text.of(player.getWorld().getName()))
+                .map(player -> Text.of(player.getWorld().getName()))
                 .ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "World: ", TextColors.WHITE, text))
-        );
+                        texts.add(Text.of(TextColors.YELLOW, "World: ", TextColors.WHITE, text))
+                );
         target.getPlayer()
                 .filter(c -> has(commandContext, ALL, COORDINATES))
                 .map(player -> formatLocation(player.getLocation()))
                 .ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "Coordinates: ", TextColors.WHITE, text))
-        );
+                        texts.add(Text.of(TextColors.YELLOW, "Coordinates: ", TextColors.WHITE, text))
+                );
         target.get(Keys.FIRST_DATE_PLAYED)
                 .filter(f -> has(commandContext, ALL, FIRST))
                 .map(new TimeSince(commandSource.getLocale()))
                 .ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "First Joined: ", TextColors.WHITE, text))
-        );
+                        texts.add(Text.of(TextColors.YELLOW, "First Joined: ", TextColors.WHITE, text))
+                );
         target.get(Keys.LAST_DATE_PLAYED)
                 .filter(l -> has(commandContext, ALL, LAST))
                 .map(new TimeSince(commandSource.getLocale()))
                 .ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "Last Joined: ", TextColors.WHITE, text))
-        );
+                        texts.add(Text.of(TextColors.YELLOW, "Last Joined: ", TextColors.WHITE, text))
+                );
         target.getPlayer()
                 .filter(l -> has(commandContext, ALL, IP))
                 .map(p -> p.getConnection().getAddress().getHostString())
-                .<Text>map(Text::of).ifPresent(text ->
+                .map(Text::of).ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "IP Address: ", TextColors.WHITE, text))
         );
 
