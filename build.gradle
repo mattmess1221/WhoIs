@@ -1,0 +1,62 @@
+plugins {
+    id 'org.spongepowered.plugin' version '0.8.1'
+}
+
+group = pluginGroup
+version = pluginVersion
+
+dependencies {
+    compile 'org.spongepowered:spongeapi:6.0.0-SNAPSHOT'
+}
+
+sponge.plugin.id = pluginId
+
+repositories {
+    maven {
+        url 'http://files.minecraftforge.net/maven'
+    }
+}
+configurations {
+    installer
+    mods {transitive = false}
+}
+dependencies {
+    installer 'net.minecraftforge:forge:1.11.2-13.20.0.2228:installer'
+    runtime fileTree(
+            dir: 'server',
+            include: '**/*.jar')
+    mods 'org.spongepowered:spongeforge:1.11.2-2227-6.0.0-BETA-2240'
+//    runtime 'org.spongepowered:spongeforge:1.11.2-2227-6.0.0-BETA-2240'
+}
+
+task installServer {
+    def runDir = project.file('server')
+    outputs.dir  runDir
+
+    doFirst {
+        def jar = project.configurations.installer.singleFile
+        runDir.mkdirs()
+
+        // ignore the run directory
+        new File(runDir, '.gitignore').text = '*'
+
+        // run the installer
+        def proc = "java -Djava.io.tmpdir=$temporaryDir -jar $jar --installServer".execute([], runDir)
+
+        // redirect stdout
+        System.out << proc.in
+    }
+    doLast {
+        // delete scala and akka stuff. They cause issues
+        project.delete 'server/mods/mod_list.json'
+        project.copy {
+            from project.configurations.mods
+            into new File(runDir, 'mods')
+        }
+
+        // automatically accepts the eula
+        new File(runDir, 'eula.txt').text = 'eula=true'
+
+    }
+}
+
