@@ -50,7 +50,13 @@ public class Whois {
         Sponge.getCommandManager().register(this, CommandSpec.builder()
                 .description(Text.of("Gets info on the user."))
                 .arguments(flags()
-                        .flag(ALL).flag(IP).flag(FIRST).flag(LAST).flag(WORLD).flag(COORDINATES).flag(GAMEMODE)
+                        .permissionFlag("whois.all", ALL, "-all")
+                        .permissionFlag("whois.address", IP, "-ip")
+                        .flag(FIRST, "-firstjoined")
+                        .flag(LAST, "-lastjoined")
+                        .flag(WORLD, "-world")
+                        .flag(COORDINATES, "-coords")
+                        .flag(GAMEMODE, "-gamemode")
                         .buildWith(optional(user(KEY_USER))))
                 .permission("whois.command")
                 .executor(this::whois)
@@ -77,26 +83,6 @@ public class Whois {
         Text uuid = Text.of(Text.of(target.getUniqueId()));
         Text online = target.isOnline() ? Text.of(TextColors.GREEN, "ONLINE") : Text.of(TextColors.RED, "OFFLINE");
 
-        Optional<Text> gameMode = target.getPlayer()
-                .filter(g -> has(commandContext, ALL, GAMEMODE))
-                .map(player -> Text.of(player.gameMode().get()));
-        Optional<Text> world = target.getPlayer()
-                .filter(w -> has(commandContext, ALL, WORLD))
-                .map(player -> Text.of(player.getWorld().getName()));
-        Optional<Text> location = target.getPlayer()
-                .filter(c -> has(commandContext, ALL, COORDINATES))
-                .map(player -> formatLocation(player.getLocation()));
-        Optional<Text> firstJoined = target.get(Keys.FIRST_DATE_PLAYED)
-                .filter(f -> has(commandContext, ALL, FIRST))
-                .map(new TimeSince(commandSource.getLocale()));
-        Optional<Text> lastJoined = target.get(Keys.LAST_DATE_PLAYED)
-                .filter(l -> has(commandContext, ALL, LAST))
-                .map(new TimeSince(commandSource.getLocale()));
-        Optional<Text> ip = target.getPlayer()
-                .filter(l -> has(commandContext, ALL, IP))
-                .map(p -> p.getConnection().getAddress().getHostString())
-                .map(Text::of);
-
         // Start forming the output
         List<Text> texts = Lists.newArrayList();
         texts.add(Text.of(TextColors.GRAY, "--------WHOIS--------"));
@@ -105,22 +91,40 @@ public class Whois {
         texts.add(Text.of(TextColors.YELLOW, "UUID: ", TextColors.WHITE, uuid));
         texts.add(Text.of(TextColors.YELLOW, "Status: ", online));
 
-        gameMode.ifPresent(text ->
+        target.getPlayer()
+                .filter(g -> has(commandContext, ALL, GAMEMODE))
+                .<Text>map(player -> Text.of(player.gameMode().get()))
+                .ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "Game Mode: ", TextColors.WHITE, text))
         );
-        world.ifPresent(text ->
+        target.getPlayer()
+                .filter(w -> has(commandContext, ALL, WORLD))
+                .<Text>map(player -> Text.of(player.getWorld().getName()))
+                .ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "World: ", TextColors.WHITE, text))
         );
-        location.ifPresent(text ->
+        target.getPlayer()
+                .filter(c -> has(commandContext, ALL, COORDINATES))
+                .map(player -> formatLocation(player.getLocation()))
+                .ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "Coordinates: ", TextColors.WHITE, text))
         );
-        firstJoined.ifPresent(text ->
+        target.get(Keys.FIRST_DATE_PLAYED)
+                .filter(f -> has(commandContext, ALL, FIRST))
+                .map(new TimeSince(commandSource.getLocale()))
+                .ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "First Joined: ", TextColors.WHITE, text))
         );
-        lastJoined.ifPresent(text ->
+        target.get(Keys.LAST_DATE_PLAYED)
+                .filter(l -> has(commandContext, ALL, LAST))
+                .map(new TimeSince(commandSource.getLocale()))
+                .ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "Last Joined: ", TextColors.WHITE, text))
         );
-        ip.filter(address -> commandSource.hasPermission("whois.address")).ifPresent(text ->
+        target.getPlayer()
+                .filter(l -> has(commandContext, ALL, IP))
+                .map(p -> p.getConnection().getAddress().getHostString())
+                .<Text>map(Text::of).ifPresent(text ->
                 texts.add(Text.of(TextColors.YELLOW, "IP Address: ", TextColors.WHITE, text))
         );
 

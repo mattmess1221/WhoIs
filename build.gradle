@@ -24,7 +24,8 @@ dependencies {
     installer 'net.minecraftforge:forge:1.11.2-13.20.0.2228:installer'
     runtime fileTree(
             dir: 'server',
-            include: '**/*.jar')
+            include: '**/*.jar',
+            exclude: 'mods/*')
     mods 'org.spongepowered:spongeforge:1.11.2-2227-6.0.0-BETA-2240'
 //    runtime 'org.spongepowered:spongeforge:1.11.2-2227-6.0.0-BETA-2240'
 }
