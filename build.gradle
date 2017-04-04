@@ -1,5 +1,6 @@
 plugins {
     id 'org.spongepowered.plugin' version '0.8.1'
+    id 'signing'
 }
 
 group = pluginGroup
@@ -10,6 +11,11 @@ dependencies {
 }
 
 sponge.plugin.id = pluginId
+
+
+signing {
+    sign configurations.archives
+}
 
 repositories {
     maven {

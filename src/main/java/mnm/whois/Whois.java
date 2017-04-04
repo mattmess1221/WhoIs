@@ -37,7 +37,8 @@ import javax.annotation.Nonnull;
         name = "WhoIs",
         authors = "killjoy1221",
         version = "1.0",
-        description = "A simple command to give details on a user."
+        description = "A simple command to give details on a user.",
+        url = "https://github.com/killjoy1221/Whois"
 )
 public class Whois {
 
