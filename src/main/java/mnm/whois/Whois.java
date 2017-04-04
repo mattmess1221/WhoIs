@@ -49,7 +49,8 @@ public class Whois {
     public void onServerStart(GameStartingServerEvent event) {
         Sponge.getCommandManager().register(this, CommandSpec.builder()
                 .description(Text.of("Gets info on the user."))
-                .arguments(flags().flag(ALL, IP, FIRST, LAST, WORLD, COORDINATES, GAMEMODE)
+                .arguments(flags()
+                        .flag(ALL).flag(IP).flag(FIRST).flag(LAST).flag(WORLD).flag(COORDINATES).flag(GAMEMODE)
                         .buildWith(optional(user(KEY_USER))))
                 .permission("whois.command")
                 .executor(this::whois)
@@ -96,6 +97,7 @@ public class Whois {
                 .map(p -> p.getConnection().getAddress().getHostString())
                 .map(Text::of);
 
+        // Start forming the output
         List<Text> texts = Lists.newArrayList();
         texts.add(Text.of(TextColors.GRAY, "--------WHOIS--------"));
 
@@ -122,7 +124,7 @@ public class Whois {
                 texts.add(Text.of(TextColors.YELLOW, "IP Address: ", TextColors.WHITE, text))
         );
 
-
+        // send the message
         commandSource.sendMessages(texts);
 
         return CommandResult.success();
@@ -157,7 +159,7 @@ public class Whois {
 
             Duration dur = Duration.between(instant, Instant.now()).abs();
             if (dur.getSeconds() < 1)
-                return text.concat(Text.of(" (Online now)"));
+                return text.concat(Text.of(" (Now)"));
             // seconds
             if (dur.getSeconds() < 60)
                 return text.concat(Text.of(" (" + dur.getSeconds() + " seconds ago)"));
