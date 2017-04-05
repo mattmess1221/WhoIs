@@ -14,10 +14,11 @@ import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.game.state.GameStartingServerEvent;
 import org.spongepowered.api.plugin.Plugin;
+import org.spongepowered.api.service.ProviderRegistration;
+import org.spongepowered.api.service.ban.BanService;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
-import org.spongepowered.api.world.Location;
-import org.spongepowered.api.world.World;
+import org.spongepowered.api.util.ban.Ban;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -30,13 +31,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 
 @Plugin(
         id = "whois",
         name = "WhoIs",
         authors = "killjoy1221",
-        version = "1.0",
+//        version = "1.0",
         description = "A simple command to give details on a user.",
         url = "https://github.com/killjoy1221/Whois"
 )
@@ -45,7 +47,7 @@ public class Whois {
     private static final Text KEY_USER = Text.of("target");
 
     // FLAGS
-    private static final String ALL = "a",
+    private static final String ALL = "a", BAN = "b",
             GAMEMODE = "g", IP = "i", FIRST = "f",
             LAST = "l", WORLD = "w", COORDINATES = "c";
 
@@ -61,6 +63,7 @@ public class Whois {
                         .flag(WORLD, "-world")
                         .flag(COORDINATES, "-coords")
                         .flag(GAMEMODE, "-gamemode")
+                        .flag(BAN, "-ban")
                         .buildWith(optional(user(KEY_USER))))
                 .permission("whois.command")
                 .executor(this::whois)
@@ -96,41 +99,62 @@ public class Whois {
         texts.add(Text.of(TextColors.YELLOW, "Status: ", online));
 
         target.getPlayer()
-                .filter(g -> has(commandContext, ALL, GAMEMODE))
-                .map(player -> Text.of(player.gameMode().get()))
-                .ifPresent(text ->
-                        texts.add(Text.of(TextColors.YELLOW, "Game Mode: ", TextColors.WHITE, text))
-                );
+                .filter(has(commandContext, GAMEMODE))
+                .map(player -> player.gameMode().get())
+                .map(formatText("Game Mode"))
+                .ifPresent(texts::add);
         target.getPlayer()
-                .filter(w -> has(commandContext, ALL, WORLD))
-                .map(player -> Text.of(player.getWorld().getName()))
-                .ifPresent(text ->
-                        texts.add(Text.of(TextColors.YELLOW, "World: ", TextColors.WHITE, text))
-                );
+                .filter(has(commandContext, WORLD))
+                .map(player -> player.getWorld().getName())
+                .map(formatText("World"))
+                .ifPresent(texts::add);
         target.getPlayer()
-                .filter(c -> has(commandContext, ALL, COORDINATES))
-                .map(player -> formatLocation(player.getLocation()))
-                .ifPresent(text ->
-                        texts.add(Text.of(TextColors.YELLOW, "Coordinates: ", TextColors.WHITE, text))
-                );
+                .filter(has(commandContext, COORDINATES))
+                .map(player -> player.getLocation().getPosition().ceil())
+                .map(formatText("Coordinates"))
+                .ifPresent(texts::add);
+        // TODO save this info
         target.get(Keys.FIRST_DATE_PLAYED)
-                .filter(f -> has(commandContext, ALL, FIRST))
-                .map(new TimeSince(commandSource.getLocale()))
-                .ifPresent(text ->
-                        texts.add(Text.of(TextColors.YELLOW, "First Joined: ", TextColors.WHITE, text))
-                );
+                .filter(has(commandContext, FIRST))
+                .map(timeSince(commandSource.getLocale()))
+                .map(formatText("First Joined"))
+                .ifPresent(texts::add);
         target.get(Keys.LAST_DATE_PLAYED)
-                .filter(l -> has(commandContext, ALL, LAST))
-                .map(new TimeSince(commandSource.getLocale()))
-                .ifPresent(text ->
-                        texts.add(Text.of(TextColors.YELLOW, "Last Joined: ", TextColors.WHITE, text))
-                );
+                .filter(has(commandContext, LAST))
+                .map(timeSince(commandSource.getLocale()))
+                .map(formatText("Last Joined"))
+                .ifPresent(texts::add);
+
         target.getPlayer()
-                .filter(l -> has(commandContext, ALL, IP))
+                .filter(has(commandContext, IP))
                 .map(p -> p.getConnection().getAddress().getHostString())
-                .map(Text::of).ifPresent(text ->
-                texts.add(Text.of(TextColors.YELLOW, "IP Address: ", TextColors.WHITE, text))
-        );
+                .map(formatText("IP Address"))
+                .ifPresent(texts::add);
+
+        Optional<BanService> bans = Sponge.getServiceManager().getRegistration(BanService.class)
+                .filter(has(commandContext, BAN))
+                .map(ProviderRegistration::getProvider);
+
+        bans.ifPresent(banned -> {
+            Optional<Ban.Profile> banEntry = banned.getBanFor(target.getProfile());
+            // is the user banned?
+            texts.add(banEntry.map(ban -> Text.of("User is banned",
+                    ban.getBanSource()
+                            .map(by -> Text.of(" by ", by))
+                            .orElse(null),
+                    ban.getReason()
+                            .map(reason -> Text.of(" (", reason, ")"))
+                            .orElse(null))
+            ).orElse(Text.of("User is not banned.")));
+            // when was the user banned
+            banEntry.ifPresent(ban -> texts.add(Text.of("Banned since ",
+                    timeSince(commandSource.getLocale()).apply(ban.getCreationDate()),
+                    // does it expire?
+                    ban.getExpirationDate()
+                            .map(timeSince(commandSource.getLocale()))
+                            .map(until -> Text.of(" until", until))
+                            .orElse(Text.of(" until forever")))));
+        });
 
         // send the message
         commandSource.sendMessages(texts);
@@ -138,39 +162,32 @@ public class Whois {
         return CommandResult.success();
     }
 
-    private static boolean has(CommandContext ctx, String... args) {
-        for (String a : args) {
-            if (ctx.hasAny(a))
-                return true;
-        }
-        return false;
+
+    private static <T> Function<T, Text> formatText(String key) {
+        return text -> Text.of(TextColors.YELLOW, key + ": ", TextColors.WHITE, text);
     }
 
-    private static Text formatLocation(Location<World> loc) {
-        return Text.of(loc.getPosition().ceil());
+    private static <T> Predicate<T> has(CommandContext ctx, String args) {
+        return a -> ctx.hasAny(ALL) || ctx.hasAny(args);
     }
 
-    private static class TimeSince implements Function<Instant, Text> {
-
-        private Locale locale;
-
-        private TimeSince(Locale locale) {
-            this.locale = locale;
-        }
-
-        @Override
-        public Text apply(Instant instant) {
+    private static Function<Instant, Text> timeSince(final Locale locale) {
+        return (instant -> {
             Text text = Text.of(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
-                    .withLocale(this.locale)
+                    .withLocale(locale)
                     .withZone(ZoneId.systemDefault())
                     .format(instant));
 
-            Duration dur = Duration.between(instant, Instant.now()).abs();
+            String str = instant.compareTo(Instant.now()) < 0 ? " (%s %s from now)" : " (%s %s ago)";
+
+            Duration dur = Duration.between(instant, Instant.now());
+
+
             if (dur.getSeconds() < 1)
                 return text.concat(Text.of(" (Now)"));
             // seconds
             if (dur.getSeconds() < 60)
-                return text.concat(Text.of(" (" + dur.getSeconds() + " seconds ago)"));
+                return text.concat(Text.of(String.format(str, dur.getSeconds(), "seconds")));
             // minutes
             if (dur.toMinutes() < 60)
                 return text.concat(Text.of(" (" + dur.toMinutes() + " minutes ago)"));
@@ -189,7 +206,6 @@ public class Whois {
             }
             // years
             return text.concat(Text.of(" (" + per.getYears() + " years ago)"));
-        }
-
+        });
     }
 }
